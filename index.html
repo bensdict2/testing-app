@@ -327,8 +327,15 @@
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, addDoc, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global configuration from environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const firebaseConfig = {
+          apiKey: "AIzaSyBjvkFdimpnIHpzr84CpjzLwaK3zJ-qXlc",
+          authDomain: "testing-app-27b29.firebaseapp.com",
+          projectId: "testing-app-27b29",
+          storageBucket: "testing-app-27b29.firebasestorage.app",
+          messagingSenderId: "880460327654",
+          appId: "1:880460327654:web:631a9787c6ec6811b4a927",
+          measurementId: "G-G842ZFXNE6"
+        };
         
         let app, db, auth;
         let currentUser = null;
