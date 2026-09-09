@@ -1448,32 +1448,35 @@
 
         // Dynamically attach print buttons to the teacher test list
         setInterval(() => {
-            const testList = document.getElementById('teacher-test-list');
-            if (!testList) return;
-            
-            // Loop through all generated test cards
-            const cards = testList.children;
-            Array.from(cards).forEach(card => {
-                if (card.tagName === 'DIV' && !card.classList.contains('print-ready')) {
-                    const htmlStr = card.innerHTML;
+            // Smart scanner: Find all text on the page that includes "Code:"
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+            let node;
+            while (node = walker.nextNode()) {
+                if (node.nodeValue.includes('Code:')) {
                     
-                    // Find the Test Code generated in the card
-                    const match = htmlStr.match(/Test Code:\s*(?:<[^>]+>)?\s*([a-zA-Z0-9_-]+)/);
-                    
-                    if (match && match[1]) {
-                        const testId = match[1].trim();
-                        card.classList.add('print-ready'); // Prevent duplicates
+                    // Find the visual "card" container holding this text
+                    let card = node.parentElement.closest('div.shadow, div.bg-white, div.rounded, li');
+                    if (!card) card = node.parentElement.parentElement; 
+
+                    if (card && !card.classList.contains('print-ready')) {
+                        // Extract the exact test ID
+                        const fullMatch = card.textContent.match(/(?:Test Code|Code):\s*([a-zA-Z0-9_-]+)/i);
                         
-                        const btnDiv = document.createElement('div');
-                        btnDiv.className = 'mt-4 flex gap-3 flex-wrap border-t border-gray-200 pt-3';
-                        btnDiv.innerHTML = `
-                            <button onclick="window.handlePrintTest('${testId}', false)" class="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-100 transition text-sm shadow-sm flex items-center font-medium">🖨️ Print Blank Test</button>
-                            <button onclick="window.handlePrintTest('${testId}', true)" class="bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded hover:bg-green-100 transition text-sm shadow-sm flex items-center font-medium">🔑 Print Answer Key</button>
-                        `;
-                        card.appendChild(btnDiv);
+                        if (fullMatch && fullMatch[1]) {
+                            const testId = fullMatch[1].trim();
+                            card.classList.add('print-ready'); // Prevent duplicates
+                            
+                            const btnDiv = document.createElement('div');
+                            btnDiv.className = 'mt-4 flex gap-3 flex-wrap border-t border-gray-200 pt-3 w-full';
+                            btnDiv.innerHTML = `
+                                <button onclick="window.handlePrintTest('${testId}', false)" class="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-100 transition text-sm shadow-sm flex items-center font-medium">🖨️ Print Blank Test</button>
+                                <button onclick="window.handlePrintTest('${testId}', true)" class="bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded hover:bg-green-100 transition text-sm shadow-sm flex items-center font-medium">🔑 Print Answer Key</button>
+                            `;
+                            card.appendChild(btnDiv);
+                        }
                     }
                 }
-            });
+            }
         }, 1500);
         // --- PRINT FEATURE END ---
         
