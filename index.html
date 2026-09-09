@@ -1334,6 +1334,151 @@
         // Initialize Application
         window.addEventListener('DOMContentLoaded', initApp);
 
+// --- PRINT FEATURE START ---
+        window.handlePrintTest = async (testId, isAnswerKey) => {
+            try {
+                // Fetch the test directly from the database
+                const docRef = doc(db, `${appId}-tests`, testId);
+                const docSnap = await getDoc(docRef);
+                
+                if (!docSnap.exists()) {
+                    alert("Could not find test data. Please refresh and try again.");
+                    return;
+                }
+                
+                const testData = docSnap.data();
+                
+                // Open a new blank window for printing
+                const printWindow = window.open('', '_blank');
+                
+                let html = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>${testData.title || 'Test'} - ${isAnswerKey ? 'Answer Key' : 'Printable'}</title>
+                        <style>
+                            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #000; max-width: 850px; margin: 0 auto; line-height: 1.5; }
+                            h1 { text-align: center; margin-bottom: 5px; font-size: 24px; }
+                            h2 { text-align: center; color: #555; margin-top: 0; margin-bottom: 30px; font-size: 18px; font-weight: normal; }
+                            .student-info { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 40px; font-size: 16px; }
+                            .question-block { margin-bottom: 35px; page-break-inside: avoid; }
+                            .question-text { font-size: 16px; font-weight: bold; margin-bottom: 12px; }
+                            .options-container { display: flex; flex-direction: column; gap: 8px; margin-left: 15px; }
+                            .option { font-size: 15px; display: flex; align-items: flex-start; gap: 10px; }
+                            .option-letter { font-weight: bold; min-width: 25px; }
+                            .correct-highlight { background-color: #d1fae5; border: 1px solid #10b981; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+                            img { max-width: 350px; max-height: 250px; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px; display: block; }
+                            
+                            /* Ensure it looks perfect on paper */
+                            @media print {
+                                body { padding: 0; max-width: 100%; }
+                                .question-block { page-break-inside: avoid; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>${testData.title || 'Testing Assessment'}</h1>
+                        ${isAnswerKey 
+                            ? '<h2>Teacher Answer Key</h2>' 
+                            : `<div class="student-info">
+                                 <span>Name: _________________________________________</span>
+                                 <span>Date: ____________________</span>
+                               </div>`
+                        }
+                `;
+
+                if (testData.questions && testData.questions.length > 0) {
+                    testData.questions.forEach((q, index) => {
+                        html += `
+                            <div class="question-block">
+                                <div class="question-text">${index + 1}. ${q.question}</div>
+                                ${q.qImg ? `<img src="${q.qImg}" alt="Question Image" />` : ''}
+                                <div class="options-container">
+                        `;
+
+                        const options = ['A', 'B', 'C', 'D'];
+                        options.forEach(opt => {
+                            const optText = q[`option${opt}`];
+                            const optImg = q[`option${opt}Img`];
+                            const isCorrect = isAnswerKey && q.correctAnswer === opt;
+                            
+                            let optionContentHTML = `<div class="${isCorrect ? 'correct-highlight' : ''}">`;
+                            if (optText) optionContentHTML += `<span>${optText}</span>`;
+                            if (isCorrect) optionContentHTML += ` <span style="color: #047857; font-size: 13px; margin-left: 5px;">(Correct Answer)</span>`;
+                            if (optImg) optionContentHTML += `<br><img src="${optImg}" style="max-height: 150px; margin-top: 5px;" alt="Option ${opt} Image" />`;
+                            optionContentHTML += `</div>`;
+
+                            if (optText || optImg) {
+                                html += `
+                                    <div class="option">
+                                        <span class="option-letter">${opt})</span>
+                                        ${optionContentHTML}
+                                    </div>
+                                `;
+                            }
+                        });
+
+                        html += `
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `<p style="text-align:center;">No questions found in this test.</p>`;
+                }
+
+                html += `
+                    </body>
+                    </html>
+                `;
+
+                printWindow.document.write(html);
+                printWindow.document.close();
+                
+                // Give images a fraction of a second to load before opening the print dialog
+                setTimeout(() => {
+                    printWindow.print();
+                }, 800);
+
+            } catch (error) {
+                console.error("Error generating print:", error);
+                alert("Failed to generate print document. Check console for details.");
+            }
+        };
+
+        // Dynamically attach print buttons to the teacher test list
+        setInterval(() => {
+            const testList = document.getElementById('teacher-test-list');
+            if (!testList) return;
+            
+            // Loop through all generated test cards
+            const cards = testList.children;
+            Array.from(cards).forEach(card => {
+                if (card.tagName === 'DIV' && !card.classList.contains('print-ready')) {
+                    const htmlStr = card.innerHTML;
+                    
+                    // Find the Test Code generated in the card
+                    const match = htmlStr.match(/Test Code:\s*(?:<[^>]+>)?\s*([a-zA-Z0-9_-]+)/);
+                    
+                    if (match && match[1]) {
+                        const testId = match[1].trim();
+                        card.classList.add('print-ready'); // Prevent duplicates
+                        
+                        const btnDiv = document.createElement('div');
+                        btnDiv.className = 'mt-4 flex gap-3 flex-wrap border-t border-gray-200 pt-3';
+                        btnDiv.innerHTML = `
+                            <button onclick="window.handlePrintTest('${testId}', false)" class="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-100 transition text-sm shadow-sm flex items-center font-medium">🖨️ Print Blank Test</button>
+                            <button onclick="window.handlePrintTest('${testId}', true)" class="bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 rounded hover:bg-green-100 transition text-sm shadow-sm flex items-center font-medium">🔑 Print Answer Key</button>
+                        `;
+                        card.appendChild(btnDiv);
+                    }
+                }
+            });
+        }, 1500);
+        // --- PRINT FEATURE END ---
+        
     </script>
+
+    
 </body>
 </html>
